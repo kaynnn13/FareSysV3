@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <h1 class="page-title">Dashboard</h1>
+    </div>
+    <p class="page-subtitle">Welcome back, <strong>{{ session.get('username') }}</strong>. Review your recent submissions and community fare monitoring metrics.</p>
+  </div>
+
+  <div class="page-actions">
+    <a href="{{ url_for('report_fare') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>+ Report Fare</span>
+    </a>
+  </div>
+</div>
+
+<!-- 4 Statistics Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon-wrapper blue">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-title">My Reports</span>
+      <strong class="stat-value">{{ stats.my_reports }}</strong>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper green">
+      <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-title">Community Reports</span>
+      <strong class="stat-value">{{ stats.community_reports }}</strong>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper orange">
+      <svg viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-title">Verified Reports</span>
+      <strong class="stat-value">{{ stats.verified }}</strong>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper red">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-title">Reports Above Official Fare</span>
+      <strong class="stat-value">{{ stats.deviations }}</strong>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Fare Reports Table Card -->
+<div class="table-card">
+  <div style="padding:18px 24px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="font-size:16px;font-weight:700;color:var(--primary-navy);">Recent Fare Reports</h3>
+    <a href="{{ url_for('fare_reports') }}" class="btn btn-secondary btn-sm">
+      <span>View All Reports</span>
+      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date & Time</th>
+          <th>Route</th>
+          <th>Reported Fare</th>
+          <th>Official Fare</th>
+          <th>Difference</th>
+          <th>Estimated Likelihood</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_reports %}
+        <tr>
+          <td>
+            <div class="cell-date-time" title="Trip Occurred: {{ r.occurred_at or r.created_at }} | Reported: {{ r.created_at }}">
+              <div style="font-size:12px;font-weight:600;color:var(--primary-navy);">
+                <span class="cell-date">{{ (r.occurred_at or r.created_at)[:10] }}</span>
+                <span class="cell-time">{{ (r.occurred_at or r.created_at)[11:16] }}</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
+                Rep: {{ r.created_at[:10] }} {{ r.created_at[11:16] }}
+              </div>
+            </div>
+          </td>
+          <td class="cell-route">
+            {% if r.destination %}
+              <strong>{{ r.origin }} → {{ r.destination }}</strong>
+            {% else %}
+              <strong>{{ r.route_name }}</strong>
+            {% endif %}
+            <div style="margin-top:2px;">
+              {% if r.trip_type == 'special' %}
+                <span class="badge-trip-type badge-trip-special">Special Solo</span>
+              {% elif r.trip_type == 'special_round_trip' %}
+                <span class="badge-trip-type badge-trip-round">Special Round Trip</span>
+              {% else %}
+                <span class="badge-trip-type badge-trip-regular">Regular ({{ r.passenger_count or 1 }} pax)</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="cell-fare">₱{{ "%.2f"|format(r.reported_fare) }}</td>
+          <td>₱{{ "%.2f"|format(r.expected_fare if (r.expected_fare and r.expected_fare > 0) else r.official_fare) }}</td>
+          <td>
+            {% if r.fare_difference > 0 %}
+              <span class="cell-diff-positive">+₱{{ "%.2f"|format(r.fare_difference) }}</span>
+            {% elif r.fare_difference == 0 %}
+              <span class="cell-diff-neutral">₱0.00</span>
+            {% else %}
+              <span class="cell-diff-neutral">-₱{{ "%.2f"|format(r.fare_difference|abs) }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="likelihood-pill {% if r.posterior_probability < 0.4 %}badge-low{% elif r.posterior_probability < 0.7 %}badge-medium{% else %}badge-high{% endif %}">
+              {{ "%.1f"|format(r.posterior_probability * 100) }}%
+            </span>
+          </td>
+          <td>
+            <span class="status-pill status-{{ r.verification_status|lower }}">
+              {{ r.verification_status }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('report_details', report_id=r.id) }}" class="btn btn-secondary btn-sm">
+              <span>Details</span>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:32px;color:var(--text-secondary);">
+            No fare reports recorded yet. Click <strong>+ Report Fare</strong> to submit your first report.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

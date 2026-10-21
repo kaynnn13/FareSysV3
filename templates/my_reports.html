@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}My Reports{% endblock %}
+{% block breadcrumb %}My Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <h1 class="page-title">My Reports</h1>
+    </div>
+    <p class="page-subtitle">Track the verification status and Bayesian deviation estimates for all fare submissions you have contributed to the terminal hub database.</p>
+  </div>
+
+  <div class="page-actions">
+    <a href="{{ url_for('report_fare') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>+ Report Fare</span>
+    </a>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Route</th>
+          <th>Fare Paid</th>
+          <th>Official Fare</th>
+          <th>Difference</th>
+          <th>Estimated Likelihood</th>
+          <th>Evidence Photo</th>
+          <th>Verification Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>
+            <div class="cell-date-time" title="Trip Occurred: {{ r.occurred_at or r.created_at }} | Reported: {{ r.created_at }}">
+              <div style="font-size:12px;font-weight:600;color:var(--primary-navy);">
+                <span class="cell-date">{{ (r.occurred_at or r.created_at)[:10] }}</span>
+                <span class="cell-time">{{ (r.occurred_at or r.created_at)[11:16] }}</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
+                Rep: {{ r.created_at[:10] }} {{ r.created_at[11:16] }}
+              </div>
+            </div>
+          </td>
+          <td class="cell-route">
+            {% if r.destination %}
+              <strong>{{ r.origin }} → {{ r.destination }}</strong>
+            {% else %}
+              <strong>{{ r.route_name }}</strong>
+            {% endif %}
+            <div style="margin-top:2px;">
+              {% if r.trip_type == 'special' %}
+                <span class="badge-trip-type badge-trip-special">Special Solo</span>
+              {% elif r.trip_type == 'special_round_trip' %}
+                <span class="badge-trip-type badge-trip-round">Special Round Trip</span>
+              {% else %}
+                <span class="badge-trip-type badge-trip-regular">Regular ({{ r.passenger_count or 1 }} pax)</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="cell-fare">₱{{ "%.2f"|format(r.reported_fare) }}</td>
+          <td style="color:var(--text-secondary);">₱{{ "%.2f"|format(r.expected_fare if (r.expected_fare and r.expected_fare > 0) else r.official_fare) }}</td>
+          <td>
+            {% if r.fare_difference > 0 %}
+              <span class="cell-diff-positive">+₱{{ "%.2f"|format(r.fare_difference) }}</span>
+            {% elif r.fare_difference == 0 %}
+              <span class="cell-diff-neutral">₱0.00</span>
+            {% else %}
+              <span class="cell-diff-neutral">-₱{{ "%.2f"|format(r.fare_difference|abs) }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="likelihood-pill {% if r.posterior_probability < 0.4 %}badge-low{% elif r.posterior_probability < 0.7 %}badge-medium{% else %}badge-high{% endif %}">
+              {{ "%.1f"|format(r.posterior_probability * 100) }}%
+            </span>
+          </td>
+          <td>
+            {% if r.photo_filename %}
+              <img src="{{ url_for('uploaded_file', filename=r.photo_filename) }}" 
+                   alt="Fare Evidence" 
+                   class="table-photo-thumb"
+                   onclick="openPhotoModal('{{ url_for('uploaded_file', filename=r.photo_filename) }}', 'My Evidence · {{ r.route_name }}')">
+            {% else %}
+              <span class="no-photo-badge">None</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="status-pill status-{{ r.verification_status|lower }}">
+              {{ r.verification_status }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('report_details', report_id=r.id) }}" class="btn btn-secondary btn-sm">
+              <span>View Details</span>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:36px;color:var(--text-secondary);">
+            You have not submitted any fare reports yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

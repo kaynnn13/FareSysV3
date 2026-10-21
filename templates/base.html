@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Malolos FareWatch{% endblock %} - Bayesian Tricycle Fare Deviation Monitoring</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='terminal_hub_logo.png') }}">
+</head>
+<body>
+
+<!-- Watermark: 5.5% Opacity Malolos City Terminal Hub Logo -->
+<div class="watermark"></div>
+
+<!-- Mobile Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-container">
+  {% if session.get('user_id') %}
+  <!-- ========================================================================
+       LEFT SIDEBAR (280px Desktop)
+       ======================================================================== -->
+  <aside class="sidebar" id="appSidebar">
+    <!-- Sidebar Header with Terminal Hub Logo -->
+    <a href="{{ url_for('dashboard') }}" class="sidebar-header">
+      <img src="{{ url_for('static', filename='terminal_hub_logo.png') }}" alt="Malolos City Terminal Hub Logo" class="sidebar-logo">
+      <div class="sidebar-brand-text">
+        <span class="brand-title-top">MALOLOS CITY</span>
+        <span class="brand-title-sub">TERMINAL HUB</span>
+        <span class="brand-xentro">by XentroMall</span>
+      </div>
+    </a>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar-nav">
+      <!-- Commuter Navigation Items -->
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Dashboard</span>
+      </a>
+
+      <a href="{{ url_for('fare_matrix') }}" class="nav-item {% if active_page == 'fare_matrix' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+        <span>Fare Matrix</span>
+      </a>
+
+      <a href="{{ url_for('report_fare') }}" class="nav-item {% if active_page == 'report_fare' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <span>Report Fare</span>
+      </a>
+
+      <a href="{{ url_for('fare_reports') }}" class="nav-item {% if active_page == 'fare_reports' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>View Fare Reports</span>
+      </a>
+
+      <a href="{{ url_for('my_reports') }}" class="nav-item {% if active_page == 'my_reports' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>My Reports</span>
+      </a>
+
+      <a href="{{ url_for('profile') }}" class="nav-item {% if active_page == 'profile' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Profile</span>
+      </a>
+
+      <!-- Administrator Section -->
+      {% if session.get('role') == 'admin' %}
+      <div class="nav-section-label">ADMIN</div>
+      
+      <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if active_page == 'admin_dashboard' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Monitoring Dashboard</span>
+      </a>
+
+      <a href="{{ url_for('admin_routes') }}" class="nav-item {% if active_page == 'admin_routes' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+        <span>Manage Routes</span>
+      </a>
+
+      <a href="{{ url_for('admin_reports') }}" class="nav-item {% if active_page == 'admin_reports' %}active{% endif %}">
+        <svg viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Manage Reports</span>
+      </a>
+      {% endif %}
+    </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <a href="{{ url_for('logout') }}" class="nav-item nav-item-logout">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+  {% endif %}
+
+  <!-- ========================================================================
+       MAIN WRAPPER
+       ======================================================================== -->
+  <div class="main-wrapper" {% if not session.get('user_id') %}style="margin-left: 0;"{% endif %}>
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="top-header-inner">
+        <div class="header-left">
+          {% if session.get('user_id') %}
+          <button class="hamburger-btn" id="hamburgerToggle" aria-label="Toggle Navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+          </button>
+          {% else %}
+          <a href="{{ url_for('index') }}" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+            <img src="{{ url_for('static', filename='terminal_hub_logo.png') }}" alt="Logo" style="height:42px;">
+            <div style="line-height:1.15;">
+              <div style="font-weight:800;font-size:13px;color:var(--primary-navy);">MALOLOS CITY</div>
+              <div style="font-weight:800;font-size:13px;color:var(--green);">TERMINAL HUB</div>
+            </div>
+          </a>
+          {% endif %}
+
+          <div class="header-system-tag">
+            <span class="indicator"></span>
+            <span>MALOLOS FAREWATCH • DECISION SUPPORT SYSTEM</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          {% if session.get('user_id') %}
+          <div class="user-menu-wrapper">
+            <button class="user-profile-btn" id="userProfileToggle" aria-label="User Menu">
+              <div class="user-avatar-circle">
+                {{ session.get('username', 'U')[0]|upper }}
+              </div>
+              <div class="user-meta-text">
+                <span class="user-name-display">{{ session.get('username') }}</span>
+                <span class="user-role-badge">{% if session.get('role') == 'admin' %}Administrator{% else %}Commuter{% endif %}</span>
+              </div>
+              <svg class="dropdown-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+
+            <div class="user-dropdown-menu" id="userDropdownMenu">
+              <a href="{{ url_for('profile') }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>Profile & Account</span>
+              </a>
+              <a href="{{ url_for('my_reports') }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>My Reports</span>
+              </a>
+              <div class="divider"></div>
+              <a href="{{ url_for('logout') }}" style="color:var(--danger-red);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Logout</span>
+              </a>
+            </div>
+          </div>
+          {% else %}
+          <div style="display:flex;gap:10px;">
+            <a href="{{ url_for('login') }}" class="btn btn-secondary btn-sm">Log In</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    {% if session.get('user_id') %}
+    <!-- Breadcrumb Bar -->
+    <div class="breadcrumb-bar">
+      <div class="breadcrumb-inner">
+        <a href="{{ url_for('dashboard') }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>Home</span>
+        </a>
+        <span class="breadcrumb-separator">&gt;</span>
+        <span class="breadcrumb-current">{% block breadcrumb %}Dashboard{% endblock %}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Content Body -->
+    <main class="content-body">
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Institutional Footer -->
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        <div class="app-footer-top">
+          MALOLOS FAREWATCH: Bayesian Tricycle Fare Deviation Monitoring System
+        </div>
+        <div class="app-footer-sub">
+          Research Setting: Xentro Mall Terminal Hub, Malolos City, Bulacan, Philippines · Decision-Support Prototype
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- ========================================================================
+     PHOTO LIGHTBOX MODAL
+     ======================================================================== -->
+<div class="modal-backdrop" id="photoModalBackdrop">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Fare Evidence Photo</div>
+      <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <img id="modalImage" src="" alt="Fare Evidence Full View" class="modal-image-view">
+      <div id="modalCaption" class="modal-caption"></div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

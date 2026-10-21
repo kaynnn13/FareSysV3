@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "name": "Xentro Mall → San Jose / San Felipe / Felisicima",
+    "distance_km": 1.0,
+    "official_fare": 15.0,
+    "special_fare": 30.0,
+    "discounted_fare": 12.0,
+    "active": 1
+  },
+  {
+    "id": 2,
+    "name": "Xentro Mall → Sumapang Mtda. / Guinhawa Crossing / Sumapa Mtda. Kanto / Guinhawa Loob / Golden Grains",
+    "distance_km": 1.5,
+    "official_fare": 17.5,
+    "special_fare": 35.0,
+    "discounted_fare": 14.0,
+    "active": 1
+  },
+  {
+    "id": 3,
+    "name": "Xentro Mall → Catmon / Liang / Capitol View Park / Alido Subd. / Bulihan",
+    "distance_km": 2.0,
+    "official_fare": 20.0,
+    "special_fare": 40.0,
+    "discounted_fare": 16.0,
+    "active": 1
+  },
+  {
+    "id": 4,
+    "name": "Xentro Mall → Diversion / Alido / Bulihan / Maunlad Kanto / Sumapang Mtda. Gitna / San Gabriel",
+    "distance_km": 2.5,
+    "official_fare": 22.5,
+    "special_fare": 45.0,
+    "discounted_fare": 18.0,
+    "active": 1
+  },
+  {
+    "id": 5,
+    "name": "Xentro Mall → Robinsons / Bayan (Malolos Proper) / New City Hall / South Supermarket / CEU",
+    "distance_km": 3.0,
+    "official_fare": 25.0,
+    "special_fare": 50.0,
+    "discounted_fare": 20.0,
+    "active": 1
+  },
+  {
+    "id": 6,
+    "name": "Xentro Mall → Pinagbakahan / Menzyville / Menzyland Loob / Maunlad 7/11 / Sumapang Bata Bungad",
+    "distance_km": 3.5,
+    "official_fare": 27.5,
+    "special_fare": 55.0,
+    "discounted_fare": 22.0,
+    "active": 1
+  },
+  {
+    "id": 7,
+    "name": "Xentro Mall → Sumapang Bata Gitna / Dakila Loob / Bungahan Bungad / Lugam Kanto / Grand Town Phase 1",
+    "distance_km": 4.0,
+    "official_fare": 30.0,
+    "special_fare": 60.0,
+    "discounted_fare": 24.0,
+    "active": 1
+  },
+  {
+    "id": 8,
+    "name": "Xentro Mall → Ligas",
+    "distance_km": 4.5,
+    "official_fare": 32.5,
+    "special_fare": 65.0,
+    "discounted_fare": 26.0,
+    "active": 1
+  }
+]

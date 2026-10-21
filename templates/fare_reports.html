@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Fare Reports{% endblock %}
+{% block breadcrumb %}Fare Reports{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <h1 class="page-title">Fare Reports</h1>
+    </div>
+    <p class="page-subtitle">View other commuters' fare reports to see actual fares, compare with the official fare, and check the estimated deviation likelihood.</p>
+  </div>
+
+  <div class="page-actions">
+    <a href="{{ url_for('report_fare') }}" class="btn btn-primary">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>+ Report Fare</span>
+    </a>
+  </div>
+</div>
+
+<!-- Horizontal Filter Card -->
+<div class="filter-card">
+  <form method="GET" action="{{ url_for('fare_reports') }}" class="filter-form-row" style="grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr auto auto;">
+    <div class="form-group">
+      <label for="route">Route</label>
+      <select id="route" name="route" class="form-control">
+        <option value="">All Routes</option>
+        {% for r in routes %}
+          <option value="{{ r.id }}" {% if current_route == r.id|string %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="trip_type">Trip Type</label>
+      <select id="trip_type" name="trip_type" class="form-control">
+        <option value="" {% if not current_trip_type %}selected{% endif %}>All Types</option>
+        <option value="regular" {% if current_trip_type == 'regular' %}selected{% endif %}>Regular (Shared)</option>
+        <option value="special" {% if current_trip_type == 'special' %}selected{% endif %}>Special Trip (Solo)</option>
+        <option value="special_round_trip" {% if current_trip_type == 'special_round_trip' %}selected{% endif %}>Special Round Trip</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="date_range">Date Range</label>
+      <select id="date_range" name="date_range" class="form-control">
+        <option value="" {% if not current_date %}selected{% endif %}>All Dates</option>
+        <option value="today" {% if current_date == 'today' %}selected{% endif %}>Today</option>
+        <option value="week" {% if current_date == 'week' %}selected{% endif %}>Last 7 Days</option>
+        <option value="month" {% if current_date == 'month' %}selected{% endif %}>Last 30 Days</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="likelihood">Deviation Likelihood</label>
+      <select id="likelihood" name="likelihood" class="form-control">
+        <option value="" {% if not current_likelihood %}selected{% endif %}>All Levels</option>
+        <option value="low" {% if current_likelihood == 'low' %}selected{% endif %}>Low (&lt; 40%)</option>
+        <option value="medium" {% if current_likelihood == 'medium' %}selected{% endif %}>Medium (40% - 70%)</option>
+        <option value="high" {% if current_likelihood == 'high' %}selected{% endif %}>High (&gt; 70%)</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="btn btn-primary" style="height:42px;">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Search</span>
+      </button>
+
+      {% if current_route or current_trip_type or current_date or current_likelihood %}
+      <a href="{{ url_for('fare_reports') }}" class="btn btn-secondary" style="height:42px;" title="Reset Filters">
+        <span>Reset</span>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Community Fare Reports Table Card -->
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Commuter</th>
+          <th>Route &amp; Arrangement</th>
+          <th>Reported Fare</th>
+          <th>Official Expected</th>
+          <th>Difference</th>
+          <th>Deviation Likelihood</th>
+          <th>Photo / Video</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>
+            <div class="cell-date-time" title="Trip Occurred: {{ r.occurred_at or r.created_at }} | Reported: {{ r.created_at }}">
+              <div style="font-size:12px;font-weight:600;color:var(--primary-navy);">
+                <span class="cell-date">{{ (r.occurred_at or r.created_at)[:10] }}</span>
+                <span class="cell-time">{{ (r.occurred_at or r.created_at)[11:16] }}</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
+                Rep: {{ r.created_at[:10] }} {{ r.created_at[11:16] }}
+              </div>
+            </div>
+          </td>
+          <td class="cell-commuter">
+            <!-- Anonymized Commuter Privacy Requirement: Commuter #ID only -->
+            Commuter #{{ r.user_id }}
+          </td>
+          <td class="cell-route">
+            <a href="{{ url_for('report_details', report_id=r.id) }}" style="text-decoration:none;color:inherit;font-weight:600;" title="View Report Details">
+              {% if r.destination %}
+                {{ r.origin }} → {{ r.destination }}
+              {% else %}
+                {{ r.route_name }}
+              {% endif %}
+            </a>
+            <div style="margin-top:4px;">
+              {% if r.trip_type == 'special' %}
+                <span class="badge-trip-type badge-trip-special">Special Solo</span>
+              {% elif r.trip_type == 'special_round_trip' %}
+                <span class="badge-trip-type badge-trip-round">Special Round Trip</span>
+              {% else %}
+                <span class="badge-trip-type badge-trip-regular">Regular ({{ r.passenger_count or 1 }} pax)</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="cell-fare">
+            ₱{{ "%.2f"|format(r.reported_fare) }}
+            {% if r.passenger_count and r.passenger_count > 1 and r.trip_type == 'regular' %}
+              <div style="font-size:11px;color:var(--text-secondary);font-weight:400;">
+                ₱{{ "%.2f"|format(r.reported_fare / r.passenger_count) }}/pax
+              </div>
+            {% elif r.trip_type == 'special' %}
+              <div style="font-size:11px;color:var(--text-secondary);font-weight:400;">
+                Solo charter
+              </div>
+            {% elif r.trip_type == 'special_round_trip' %}
+              <div style="font-size:11px;color:var(--text-secondary);font-weight:400;">
+                Round trip
+              </div>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-secondary);">
+            ₱{{ "%.2f"|format(r.expected_fare if (r.expected_fare and r.expected_fare > 0) else r.official_fare) }}
+            {% if r.trip_type == 'special' %}
+              <div style="font-size:11px;color:var(--primary-blue);font-weight:600;">Special Tariff</div>
+            {% elif r.trip_type == 'special_round_trip' %}
+              <div style="font-size:11px;color:#7e22ce;font-weight:600;">2-Way Tariff</div>
+            {% elif r.passenger_count and r.passenger_count > 1 %}
+              <div style="font-size:11px;color:var(--text-muted);font-weight:500;">₱{{ "%.2f"|format(r.official_fare) }} × {{ r.passenger_count }}</div>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.fare_difference > 0 %}
+              <span class="cell-diff-positive">+₱{{ "%.2f"|format(r.fare_difference) }}</span>
+            {% elif r.fare_difference == 0 %}
+              <span class="cell-diff-neutral">₱0.00</span>
+            {% else %}
+              <span class="cell-diff-neutral">-₱{{ "%.2f"|format(r.fare_difference|abs) }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <!-- Likelihood Badges: Low (green), Medium (orange), High (red) -->
+            <span class="likelihood-pill {% if r.posterior_probability < 0.4 %}badge-low{% elif r.posterior_probability < 0.7 %}badge-medium{% else %}badge-high{% endif %}" title="Bayesian posterior estimate: {{ '%.1f'|format(r.posterior_probability * 100) }}%">
+              {{ "%.1f"|format(r.posterior_probability * 100) }}%
+            </span>
+          </td>
+          <td>
+            {% if r.photo_filename %}
+              {% if r.photo_filename|is_video %}
+                <video src="{{ url_for('uploaded_file', filename=r.photo_filename) }}" class="table-photo-thumb" controls muted playsinline></video>
+              {% else %}
+                <img src="{{ url_for('uploaded_file', filename=r.photo_filename) }}"
+                     alt="Fare Evidence"
+                     class="table-photo-thumb"
+                     onclick="openPhotoModal('{{ url_for('uploaded_file', filename=r.photo_filename) }}', 'Evidence by Commuter #{{ r.user_id }} · {{ r.route_name }} (₱{{ '%.2f'|format(r.reported_fare) }})')">
+              {% endif %}
+            {% else %}
+              <span class="no-photo-badge">No photo/video</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="status-pill status-{{ r.verification_status|lower }}">
+              {{ r.verification_status }}
+            </span>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:36px;color:var(--text-secondary);">
+            No fare reports found matching the selected filter criteria.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination Bottom Bar -->
+  <div class="pagination-bar">
+    <div class="pagination-info">
+      Showing {{ pagination.start_idx }} to {{ pagination.end_idx }} of {{ pagination.total_count }} reports
+    </div>
+    <div class="pagination-controls">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('fare_reports', page=pagination.page - 1, route=current_route, trip_type=current_trip_type, date_range=current_date, likelihood=current_likelihood) }}" class="pagination-btn">
+          Previous
+        </a>
+      {% else %}
+        <span class="pagination-btn disabled">Previous</span>
+      {% endif %}
+
+      {% for p in range(1, pagination.total_pages + 1) %}
+        {% if p == pagination.page %}
+          <span class="pagination-btn active">{{ p }}</span>
+        {% else %}
+          <a href="{{ url_for('fare_reports', page=p, route=current_route, trip_type=current_trip_type, date_range=current_date, likelihood=current_likelihood) }}" class="pagination-btn">{{ p }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if pagination.has_next %}
+        <a href="{{ url_for('fare_reports', page=pagination.page + 1, route=current_route, trip_type=current_trip_type, date_range=current_date, likelihood=current_likelihood) }}" class="pagination-btn">
+          Next
+        </a>
+      {% else %}
+        <span class="pagination-btn disabled">Next</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Reports{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('admin_dashboard') }}">Admin</a> <span class="breadcrumb-separator">&gt;</span> Manage Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <h1 class="page-title">Manage Fare Reports</h1>
+    </div>
+    <p class="page-subtitle">Inspect commuter-submitted photo/video evidence and confidential IDs, verify validity, and manage report status. Status updates persist in the relational database.</p>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Commuter</th>
+          <th>Route</th>
+          <th>Reported Fare</th>
+          <th>Difference</th>
+          <th>Photo / Video</th>
+          <th>Valid ID</th>
+          <th>Likelihood</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td>
+            <div class="cell-date-time" title="Trip Occurred: {{ r.occurred_at or r.created_at }} | Reported: {{ r.created_at }}">
+              <div style="font-size:12px;font-weight:600;color:var(--primary-navy);">
+                <span class="cell-date">{{ (r.occurred_at or r.created_at)[:10] }}</span>
+                <span class="cell-time">{{ (r.occurred_at or r.created_at)[11:16] }}</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
+                Rep: {{ r.created_at[:10] }} {{ r.created_at[11:16] }}
+              </div>
+            </div>
+          </td>
+          <td class="cell-commuter">
+            <div>Commuter #{{ r.user_id }}</div>
+            <small style="color:var(--text-muted);font-weight:normal;">({{ r.username }})</small>
+          </td>
+          <td class="cell-route">
+            <a href="{{ url_for('report_details', report_id=r.id) }}" style="text-decoration:none;color:inherit;font-weight:600;" title="Inspect Breakdown">
+              {% if r.destination %}
+                {{ r.origin }} → {{ r.destination }}
+              {% else %}
+                {{ r.route_name }}
+              {% endif %}
+            </a>
+            <div style="margin-top:2px;">
+              {% if r.trip_type == 'special' %}
+                <span class="badge-trip-type badge-trip-special">Special Solo</span>
+              {% elif r.trip_type == 'special_round_trip' %}
+                <span class="badge-trip-type badge-trip-round">Special Round Trip</span>
+              {% else %}
+                <span class="badge-trip-type badge-trip-regular">Regular ({{ r.passenger_count or 1 }} pax)</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="cell-fare">₱{{ "%.2f"|format(r.reported_fare) }}</td>
+          <td>
+            {% if r.fare_difference > 0 %}
+              <span class="cell-diff-positive">+₱{{ "%.2f"|format(r.fare_difference) }}</span>
+            {% elif r.fare_difference == 0 %}
+              <span class="cell-diff-neutral">₱0.00</span>
+            {% else %}
+              <span class="cell-diff-neutral">-₱{{ "%.2f"|format(r.fare_difference|abs) }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.photo_filename %}
+              {% if r.photo_filename|is_video %}
+                <video src="{{ url_for('uploaded_file', filename=r.photo_filename) }}" class="table-photo-thumb" controls muted playsinline></video>
+              {% else %}
+                <img src="{{ url_for('uploaded_file', filename=r.photo_filename) }}"
+                     alt="Evidence Photo"
+                     class="table-photo-thumb"
+                     onclick="openPhotoModal('{{ url_for('uploaded_file', filename=r.photo_filename) }}', 'Report #{{ r.id }} Evidence · Commuter #{{ r.user_id }}')">
+              {% endif %}
+            {% else %}
+              <span class="no-photo-badge">None</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.id_filename %}
+              <a href="{{ url_for('admin_private_id', filename=r.id_filename) }}" target="_blank" class="btn btn-secondary btn-sm">View ID</a>
+            {% else %}
+              <span class="no-photo-badge">None</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="likelihood-pill {% if r.posterior_probability < 0.4 %}badge-low{% elif r.posterior_probability < 0.7 %}badge-medium{% else %}badge-high{% endif %}">
+              {{ "%.1f"|format(r.posterior_probability * 100) }}%
+            </span>
+          </td>
+          <td>
+            <span class="status-pill status-{{ r.verification_status|lower }}">
+              {{ r.verification_status }}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <form method="POST" action="{{ url_for('update_report_status', report_id=r.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="Verified">
+                <button type="submit" class="btn btn-success btn-sm" title="Mark Verified" {% if r.verification_status == 'Verified' %}disabled style="opacity:0.6;"{% endif %}>
+                  Verify
+                </button>
+              </form>
+
+              <form method="POST" action="{{ url_for('update_report_status', report_id=r.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="Rejected">
+                <button type="submit" class="btn btn-danger btn-sm" title="Mark Rejected" {% if r.verification_status == 'Rejected' %}disabled style="opacity:0.6;"{% endif %}>
+                  Reject
+                </button>
+              </form>
+
+              <form method="POST" action="{{ url_for('update_report_status', report_id=r.id) }}" style="display:inline;">
+                <input type="hidden" name="status" value="Pending">
+                <button type="submit" class="btn btn-secondary btn-sm" title="Set Pending" {% if r.verification_status == 'Pending' %}disabled style="opacity:0.6;"{% endif %}>
+                  Pending
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align:center;padding:36px;color:var(--text-secondary);">
+            No commuter fare reports currently in the database.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

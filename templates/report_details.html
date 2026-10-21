@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Report #{{ report.id }} Details{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('fare_reports') }}">Fare Reports</a> <span class="breadcrumb-separator">&gt;</span> Report #{{ report.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+      <h1 class="page-title">Fare Report #{{ report.id }}</h1>
+    </div>
+    <p class="page-subtitle">Detailed breakdown and empirical Bayesian calculation for fare submission on {{ report.route_name }}.</p>
+  </div>
+
+  <div class="page-actions">
+    <a href="{{ url_for('fare_reports') }}" class="btn btn-secondary">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      <span>Back to Fare Reports</span>
+    </a>
+  </div>
+</div>
+
+<!-- Bayesian Calculation Card -->
+<div class="bayesian-breakdown-card">
+  <div class="bayesian-header">
+    <div class="bayesian-title-group">
+      <h3>Bayesian Probability Model Breakdown</h3>
+      <p>P(A|B): Posterior likelihood of fare deviation given observed commuter evidence</p>
+    </div>
+    <div class="bayesian-big-score">
+      <div class="score-num">{{ "%.1f"|format(calc.percentage) }}%</div>
+      <div class="score-label">Estimated Deviation Likelihood</div>
+    </div>
+  </div>
+
+  <div class="formula-banner">
+    Bayes' Theorem: P(A|B) = [ P(B|A) × P(A) ] / [ P(B|A)P(A) + P(B|¬A)P(¬A) ]
+  </div>
+
+  <div class="bayesian-math-grid">
+    <div class="math-cell">
+      <div class="math-cell-label">Prior Probability of Deviation</div>
+      <div class="math-cell-formula">P(A)</div>
+      <div class="math-cell-val">{{ calc.prior }} (50.0%)</div>
+    </div>
+
+    <div class="math-cell">
+      <div class="math-cell-label">Likelihood Given Deviation</div>
+      <div class="math-cell-formula">P(B|A)</div>
+      <div class="math-cell-val">{{ calc.likelihood_deviation }}</div>
+    </div>
+
+    <div class="math-cell">
+      <div class="math-cell-label">Likelihood Given No Deviation</div>
+      <div class="math-cell-formula">P(B|¬A)</div>
+      <div class="math-cell-val">{{ calc.likelihood_no_deviation }}</div>
+    </div>
+
+    <div class="math-cell">
+      <div class="math-cell-label">Marginal Evidence Probability</div>
+      <div class="math-cell-formula">P(B)</div>
+      <div class="math-cell-val">{{ calc.marginal_evidence }}</div>
+    </div>
+
+    <div class="math-cell">
+      <div class="math-cell-label">Evidence Classification</div>
+      <div class="math-cell-formula">Fare Difference Δ</div>
+      <div class="math-cell-val" style="font-size:15px;color:#93C5FD;">
+        {{ calc.evidence_type }}
+      </div>
+    </div>
+
+    <div class="math-cell">
+      <div class="math-cell-label">Posterior Probability</div>
+      <div class="math-cell-formula">P(A|B)</div>
+      <div class="math-cell-val" style="color:#6ee7b7;">{{ calc.posterior }} ({{ "%.1f"|format(calc.percentage) }}%)</div>
+    </div>
+  </div>
+
+  <div class="bayesian-disclaimer">
+    <strong>{{ calc.development_notice }}</strong><br>
+    This decision-support metric estimates deviation likelihood against the configured baseline fare. It does NOT automatically accuse drivers or imply legal guilt.
+  </div>
+</div>
+
+<!-- Report Details Grid -->
+<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:24px;">
+  <!-- Left: Transaction Data -->
+  <div class="card">
+    <h3 style="font-size:16px;font-weight:700;color:var(--primary-navy);margin-bottom:18px;border-bottom:1px solid var(--border-light);padding-bottom:10px;">
+      Report Overview
+    </h3>
+
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:13.5px;">
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Starting Point (Point A):</span>
+        <strong style="color:var(--primary-navy);">{{ report.origin or 'Xentro Mall Terminal Hub' }}</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Destination (Point B):</span>
+        <strong style="color:var(--primary-navy);">{{ report.destination or report.route_name }}</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Trip Arrangement:</span>
+        <div>
+          {% if report.trip_type == 'special' %}
+            <span class="badge-trip-type badge-trip-special">Special Solo Charter</span>
+          {% elif report.trip_type == 'special_round_trip' %}
+            <span class="badge-trip-type badge-trip-round">Special Round Trip</span>
+          {% else %}
+            <span class="badge-trip-type badge-trip-regular">Regular / Shared</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Passengers Paying:</span>
+        <strong>{{ report.passenger_count or 1 }} Passenger(s)</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <div>
+          <div style="color:var(--text-secondary);">Date &amp; Time Occurred:</div>
+          <small style="font-size:11px;color:var(--text-muted);">Tricycle ride taken</small>
+        </div>
+        <div style="text-align:right;">
+          <strong style="color:var(--primary-navy);">{{ report.occurred_at or report.created_at }}</strong>
+          <div style="font-size:10.5px;color:var(--green-main);font-weight:600;">Within 24h Window Verified</div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <div>
+          <div style="color:var(--text-secondary);">Date &amp; Time Reported:</div>
+          <small style="font-size:11px;color:var(--text-muted);">Submission timestamp</small>
+        </div>
+        <div style="text-align:right;">
+          <strong>{{ report.created_at }}</strong>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Commuter Identity:</span>
+        <span class="cell-commuter">Commuter #{{ report.user_id }}</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Fare Paid (Actual):</span>
+        <div style="text-align:right;">
+          <strong style="font-size:16px;color:var(--primary-navy);">₱{{ "%.2f"|format(report.reported_fare) }}</strong>
+          {% if report.passenger_count and report.passenger_count > 1 and report.trip_type == 'regular' %}
+            <div style="font-size:11px;color:var(--text-secondary);">₱{{ "%.2f"|format(report.reported_fare / report.passenger_count) }}/person</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Official Baseline Fare:</span>
+        <div style="text-align:right;">
+          <strong style="font-size:16px;">₱{{ "%.2f"|format(report.expected_fare if (report.expected_fare and report.expected_fare > 0) else report.official_fare) }}</strong>
+          <div style="font-size:11px;color:var(--text-secondary);">
+            {% if report.trip_type == 'special' %}
+              Flat Special Charter Rate
+            {% elif report.trip_type == 'special_round_trip' %}
+              2-Way Round Trip Charter
+            {% elif report.passenger_count and report.passenger_count > 1 %}
+              ₱{{ "%.2f"|format(report.official_fare) }} × {{ report.passenger_count }} pax
+            {% else %}
+              Standard Matrix Tariff Rate
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Fare Difference (Δ):</span>
+        {% if report.fare_difference > 0 %}
+          <strong class="cell-diff-positive" style="font-size:16px;">+₱{{ "%.2f"|format(report.fare_difference) }}</strong>
+        {% elif report.fare_difference == 0 %}
+          <strong class="cell-diff-neutral" style="font-size:16px;">₱0.00</strong>
+        {% else %}
+          <strong class="cell-diff-neutral" style="font-size:16px;">-₱{{ "%.2f"|format(report.fare_difference|abs) }}</strong>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Tricycle Body Number:</span>
+        <strong>{{ report.body_number or 'Not provided' }}</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Estimated Distance:</span>
+        <strong>{{ report.distance_km ~ ' km' if report.distance_km else 'Not specified' }}</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-light);padding-bottom:8px;">
+        <span style="color:var(--text-secondary);">Travel Duration:</span>
+        <strong>{{ report.travel_time_min ~ ' minutes' if report.travel_time_min else 'Not specified' }}</strong>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--text-secondary);">Verification Status:</span>
+        <span class="status-pill status-{{ report.verification_status|lower }}">
+          {{ report.verification_status }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Photo / Video Evidence -->
+  <div class="card" style="text-align:center;">
+    <h3 style="font-size:16px;font-weight:700;color:var(--primary-navy);margin-bottom:18px;border-bottom:1px solid var(--border-light);padding-bottom:10px;text-align:left;">
+      Photo / Video Evidence
+    </h3>
+
+    {% if report.photo_filename %}
+      {% if report.photo_filename|is_video %}
+        <video src="{{ url_for('uploaded_file', filename=report.photo_filename) }}"
+               controls playsinline style="max-width:100%;max-height:360px;border-radius:var(--radius-md);border:1px solid var(--border-color);box-shadow:var(--shadow-subtle);"></video>
+      {% else %}
+        <img src="{{ url_for('uploaded_file', filename=report.photo_filename) }}"
+             alt="Fare Evidence"
+             style="max-width:100%;max-height:360px;border-radius:var(--radius-md);border:1px solid var(--border-color);box-shadow:var(--shadow-subtle);cursor:pointer;"
+             onclick="openPhotoModal('{{ url_for('uploaded_file', filename=report.photo_filename) }}', 'Photo Evidence for Report #{{ report.id }}')">
+      {% endif %}
+    {% else %}
+      <div style="padding:48px 20px;background:#F8FAFC;border:2px dashed var(--border-color);border-radius:var(--radius-md);color:var(--text-muted);">
+        <div>No photo or video evidence attached to this report</div>
+      </div>
+    {% endif %}
+
+    {% if can_view_id %}
+      <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border-light);text-align:left;">
+        <h4 style="font-size:14px;color:var(--primary-navy);margin-bottom:10px;">Confidential Valid ID</h4>
+        {% if report.id_filename %}
+          <a href="{{ url_for('admin_private_id', filename=report.id_filename) }}" target="_blank" class="btn btn-secondary btn-sm">
+            View Commuter ID (Admin Only)
+          </a>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+            This ID is private and is visible only to authenticated administrators.
+          </p>
+        {% else %}
+          <span style="font-size:12px;color:var(--text-muted);">No ID uploaded.</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

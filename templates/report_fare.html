@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+
+{% block title %}Report a Fare{% endblock %}
+{% block breadcrumb %}Report Fare{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-block">
+    <div class="page-title-row">
+      <div class="page-title-icon-box">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <h1 class="page-title">Report a Fare</h1>
+    </div>
+    <p class="page-subtitle">Input your trip locations, select your travel arrangement (solo special, round trip, or shared per person), and report what you paid to evaluate against the official MCXMTODA tariff baseline.</p>
+  </div>
+</div>
+
+<div class="card form-card">
+  <form method="POST" action="{{ url_for('report_fare') }}" enctype="multipart/form-data" id="reportFareForm">
+    <!-- 1. Origin (Point A) and Destination (Point B) Dropdowns -->
+    <div class="form-grid-2" style="margin-bottom:18px;">
+      <div class="form-group">
+        <label for="origin_choice">Starting Point (Point A) *</label>
+        <select id="origin_choice" name="origin_choice" class="form-control" required>
+          <option value="Xentro Mall Terminal Hub" selected>Xentro Mall Terminal Hub (Main Hub)</option>
+          <option value="Malolos City Terminal Hub">Malolos City Terminal Hub (San Felipe)</option>
+          <option value="Bayan / Malolos Crossing">Bayan / Malolos Crossing</option>
+          <option value="custom" style="font-weight:700;color:var(--primary-blue);">[ + Custom / Other Starting Point... ]</option>
+        </select>
+        <div id="origin_custom_box" style="display:none;margin-top:8px;">
+          <input type="text" id="origin_custom" name="origin_custom" class="form-control" placeholder="Type your custom starting location...">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="destination_choice">Destination (Point B) *</label>
+        <select id="destination_choice" name="destination_choice" class="form-control" required>
+          <option value="" disabled selected>Select Destination Location</option>
+          {% for d in destinations %}
+            <option value="{{ d.name }}" 
+                    data-route-id="{{ d.route_id }}" 
+                    data-fare="{{ d.official_fare }}" 
+                    data-special="{{ d.special_fare }}"
+                    data-distance="{{ d.distance_km }}">
+              {{ d.name }} ({{ d.distance_km }} km · ₱{{ "%.2f"|format(d.official_fare) }})
+            </option>
+          {% endfor %}
+          <option value="custom" style="font-weight:700;color:var(--primary-blue);">[ + Custom / Other Destination... ]</option>
+        </select>
+        <div id="destination_custom_box" style="display:none;margin-top:8px;">
+          <input type="text" id="destination_custom" name="destination_custom" class="form-control" placeholder="Type your specific destination landmark / street...">
+        </div>
+        <input type="hidden" id="route_id" name="route_id" value="">
+      </div>
+    </div>
+
+    <!-- 2. Trip Type / Arrangement Cards -->
+    <div class="form-group" style="margin-bottom:18px;">
+      <label>Trip Arrangement *</label>
+      <div class="trip-type-grid">
+        <label class="trip-type-card selected" id="card_regular">
+          <input type="radio" name="trip_type" value="regular" checked>
+          <span class="trip-type-badge badge-tag-regular">Regular / Shared</span>
+          <div class="trip-type-title">Regular (Per Person)</div>
+          <div class="trip-type-desc">Standard pick-up tariff per passenger. Baseline scales with passenger count.</div>
+        </label>
+
+        <label class="trip-type-card" id="card_special">
+          <input type="radio" name="trip_type" value="special">
+          <span class="trip-type-badge badge-tag-special">Special Solo Charter</span>
+          <div class="trip-type-title">Special Trip (Solo)</div>
+          <div class="trip-type-desc">Direct private charter of the tricycle unit directly from the terminal hub.</div>
+        </label>
+
+        <label class="trip-type-card" id="card_special_round_trip">
+          <input type="radio" name="trip_type" value="special_round_trip">
+          <span class="trip-type-badge badge-tag-round">Round Trip Charter</span>
+          <div class="trip-type-title">Special Round Trip</div>
+          <div class="trip-type-desc">Two-way private charter (terminal to destination and return / waiting).</div>
+        </label>
+      </div>
+    </div>
+
+    <!-- 3. Passenger Count & Fare Payment Grid -->
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label for="passenger_count">Number of Passengers Paying *</label>
+        <select id="passenger_count" name="passenger_count" class="form-control" required>
+          <option value="1" selected>1 Passenger (Solo)</option>
+          <option value="2">2 Passengers</option>
+          <option value="3">3 Passengers</option>
+          <option value="4">4 Passengers</option>
+          <option value="5">5 Passengers</option>
+        </select>
+        <small id="pax_helper_text" style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+          For regular trips, baseline is multiplied by passenger count. For special trips, rate covers the whole unit.
+        </small>
+      </div>
+
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <label for="reported_fare" id="fare_input_label">Total Fare Paid (₱) *</label>
+          <div class="payment-toggle-group" id="payment_basis_toggle">
+            <button type="button" class="payment-toggle-btn active" id="btn_mode_total">Total</button>
+            <button type="button" class="payment-toggle-btn" id="btn_mode_per_pax">Per Person</button>
+          </div>
+        </div>
+        <input type="number" id="reported_fare" name="reported_fare" class="form-control" placeholder="e.g. 25.00" step="0.50" min="1.00" required>
+        <input type="hidden" id="entry_mode" value="total">
+        <small id="fare_breakdown_hint" style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+          Enter the full amount paid to the driver for this trip.
+        </small>
+      </div>
+    </div>
+
+    <!-- 4. Dynamic Live Tariff Baseline & Deviation Preview Card -->
+    <div id="tariffLiveCard" class="tariff-live-card" style="display:none;">
+      <div class="tariff-live-header">
+        <div class="tariff-live-title">
+          <svg style="width:16px;height:16px;color:var(--primary-blue);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span id="preview_route_label">Point A → Point B Official Comparison</span>
+        </div>
+        <span id="preview_trip_badge" class="badge-trip-type badge-trip-regular">Regular (1 pax)</span>
+      </div>
+
+      <div class="tariff-live-grid">
+        <div class="tariff-live-item">
+          <span class="tariff-item-label">Expected Official Fare</span>
+          <span class="tariff-item-value" id="preview_expected_fare" style="color:var(--primary-blue);">₱0.00</span>
+          <small id="preview_calc_formula" style="font-size:10.5px;color:var(--text-secondary);"></small>
+        </div>
+
+        <div class="tariff-live-item">
+          <span class="tariff-item-label">Reported Fare</span>
+          <span class="tariff-item-value" id="preview_reported_fare">₱0.00</span>
+          <small id="preview_per_pax_note" style="font-size:10.5px;color:var(--text-secondary);"></small>
+        </div>
+
+        <div class="tariff-live-item">
+          <span class="tariff-item-label">Fare Difference (Δ)</span>
+          <span class="tariff-item-value" id="preview_difference">₱0.00</span>
+          <small id="preview_diff_ratio" style="font-size:10.5px;color:var(--text-secondary);"></small>
+        </div>
+
+        <div class="tariff-live-item">
+          <span class="tariff-item-label">Estimated Likelihood</span>
+          <span class="tariff-item-value" id="preview_likelihood" style="font-size:15px;">—</span>
+          <small id="preview_category" style="font-size:10.5px;color:var(--text-secondary);"></small>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Trip Occurrence & Submission Timing (24-Hour Restriction) -->
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label for="occurred_at" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Date &amp; Time Occurred *</span>
+          <span style="font-size:11px;font-weight:600;color:var(--primary-blue);background:var(--light-blue);padding:2px 7px;border-radius:10px;">Within 24h Window</span>
+        </label>
+        <input type="datetime-local" id="occurred_at" name="occurred_at" class="form-control" required>
+        <small id="timing_helper" style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+          Select when the tricycle trip took place. You can only report trips that occurred within the past 24 hours.
+        </small>
+        <div id="timing_validation_msg" style="display:none;font-size:11.5px;color:var(--danger-red);font-weight:600;margin-top:3px;"></div>
+      </div>
+
+      <div class="form-group">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Date &amp; Time Reported</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text-muted);background:#EAEFF5;padding:2px 7px;border-radius:10px;">Auto-Recorded</span>
+        </label>
+        <div class="form-control" style="background:#F4F7FB;border-color:#D8E2EE;display:flex;align-items:center;justify-content:space-between;color:var(--primary-navy);cursor:default;">
+          <span style="font-size:13.5px;font-weight:500;">
+            <svg style="width:14px;height:14px;vertical-align:-2px;margin-right:5px;color:var(--primary-blue);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="live_submission_time">Recording current time...</span>
+          </span>
+          <span style="font-size:11px;color:var(--text-secondary);">System Timestamp</span>
+        </div>
+        <small style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+          Automatically recorded and stamped upon report submission.
+        </small>
+      </div>
+    </div>
+
+    <!-- 6. Distance & Travel Time Grid -->
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label for="distance_km">Estimated Distance (km) <small style="font-weight:400;color:var(--text-muted);">(Auto-filled from destination)</small></label>
+        <input type="number" id="distance_km" name="distance_km" class="form-control" placeholder="e.g. 2.4" step="0.1" min="0.1">
+      </div>
+
+      <div class="form-group">
+        <label for="travel_time_min">Travel Time (minutes) <small style="font-weight:400;color:var(--text-muted);">(Optional)</small></label>
+        <input type="number" id="travel_time_min" name="travel_time_min" class="form-control" placeholder="e.g. 15" min="0">
+      </div>
+    </div>
+
+    <!-- 7. Tricycle Body Number -->
+    <div class="form-grid-full">
+      <div class="form-group">
+        <label for="body_number">Tricycle Body Number / Plate <small style="font-weight:400;color:var(--text-muted);">(Optional)</small></label>
+        <input type="text" id="body_number" name="body_number" class="form-control" placeholder="e.g. TM-0418">
+      </div>
+    </div>
+
+    <!-- 8. Fare Evidence: Photo / Video -->
+    <div class="form-grid-full">
+      <div class="form-group">
+        <label>Fare Evidence Photo / Video <small style="font-weight:400;color:var(--text-muted);">(Optional)</small></label>
+        <input type="file" id="farePhotoInput" name="fare_photo"
+               accept=".png,.jpg,.jpeg,.webp,.mp4,.webm,.mov" style="display:none;">
+
+        <div class="file-upload-dropzone" id="photoDropzone">
+          <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="18" x="3" y="3" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="m21 15-5-5L5 21"/>
+          </svg>
+          <div class="dropzone-label">Click or drag a photo or video here</div>
+          <div class="dropzone-hint">JPG, JPEG, PNG, WEBP, MP4, WEBM, MOV · Max 30MB</div>
+        </div>
+
+        <div id="photoPreviewBox" class="live-preview-box">
+          <div style="font-size:12px;font-weight:600;color:var(--primary-blue);margin-bottom:6px;">Selected Evidence Preview:</div>
+          <img id="photoPreviewImage" src="" alt="Selected Evidence Preview" style="display:none;">
+          <video id="photoPreviewVideo" controls style="display:none;max-width:100%;max-height:300px;border-radius:8px;"></video>
+        </div>
+
+        <p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+          Evidence helps administrators verify the reported fare.
+        </p>
+      </div>
+    </div>
+
+    <!-- 9. Confidential Valid ID Upload -->
+    <div class="form-grid-full">
+      <div class="form-group">
+        <label for="idPhotoInput">Valid ID Upload <small style="font-weight:400;color:var(--text-muted);">(Required · Admin only)</small></label>
+        <input type="file" id="idPhotoInput" name="id_photo"
+               accept=".png,.jpg,.jpeg,.webp" required style="display:none;">
+
+        <div class="file-upload-dropzone" id="idDropzone">
+          <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="12" x="3" y="6" rx="2"/>
+            <circle cx="8" cy="12" r="2"/>
+            <path d="M13 10h4M13 14h3"/>
+          </svg>
+          <div class="dropzone-label">Click or drag your valid ID here</div>
+          <div class="dropzone-hint">JPG, JPEG, PNG, WEBP · Max 5MB · Never shown to other commuters</div>
+        </div>
+
+        <div id="idPreviewBox" class="live-preview-box">
+          <div style="font-size:12px;font-weight:600;color:var(--primary-blue);margin-bottom:6px;">ID Preview:</div>
+          <img id="idPreviewImage" src="" alt="Valid ID Preview">
+        </div>
+
+        <p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+          Your ID is stored in a private server folder and can only be viewed by an authenticated administrator for report verification.
+        </p>
+      </div>
+    </div>
+
+    <!-- 10. Actions -->
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:10px;">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary btn-lg">
+        <svg viewBox="0 0 24 24"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Submit Fare Report</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const originSelect = document.getElementById('origin_choice');
+  const originCustomBox = document.getElementById('origin_custom_box');
+  const originCustomInput = document.getElementById('origin_custom');
+
+  const destSelect = document.getElementById('destination_choice');
+  const destCustomBox = document.getElementById('destination_custom_box');
+  const destCustomInput = document.getElementById('destination_custom');
+  const routeIdInput = document.getElementById('route_id');
+
+  const tripRadioButtons = document.querySelectorAll('input[name="trip_type"]');
+  const paxSelect = document.getElementById('passenger_count');
+  const fareInput = document.getElementById('reported_fare');
+  const distInput = document.getElementById('distance_km');
+  const fareLabel = document.getElementById('fare_input_label');
+  const fareHint = document.getElementById('fare_breakdown_hint');
+
+  const btnTotal = document.getElementById('btn_mode_total');
+  const btnPerPax = document.getElementById('btn_mode_per_pax');
+  const entryModeHidden = document.getElementById('entry_mode');
+
+  // Preview elements
+  const liveCard = document.getElementById('tariffLiveCard');
+  const routeLabelEl = document.getElementById('preview_route_label');
+  const badgeEl = document.getElementById('preview_trip_badge');
+  const expectedEl = document.getElementById('preview_expected_fare');
+  const formulaEl = document.getElementById('preview_calc_formula');
+  const reportedEl = document.getElementById('preview_reported_fare');
+  const perPaxEl = document.getElementById('preview_per_pax_note');
+  const diffEl = document.getElementById('preview_difference');
+  const ratioEl = document.getElementById('preview_diff_ratio');
+  const likeEl = document.getElementById('preview_likelihood');
+  const catEl = document.getElementById('preview_category');
+
+  let entryMode = 'total'; // 'total' or 'per_pax'
+
+  function getSelectedTripType() {
+    for (const r of tripRadioButtons) {
+      if (r.checked) return r.value;
+    }
+    return 'regular';
+  }
+
+  function updateTripCardStyles() {
+    const selected = getSelectedTripType();
+    document.getElementById('card_regular').classList.toggle('selected', selected === 'regular');
+    document.getElementById('card_special').classList.toggle('selected', selected === 'special');
+    document.getElementById('card_special_round_trip').classList.toggle('selected', selected === 'special_round_trip');
+
+    if (selected === 'special') {
+      fareHint.textContent = 'Enter the flat special charter fare paid for the tricycle.';
+    } else if (selected === 'special_round_trip') {
+      fareHint.textContent = 'Enter the round-trip private charter fare paid for both ways.';
+    } else {
+      fareHint.textContent = 'Enter the fare paid for regular shared pick-up.';
+    }
+  }
+
+  // Handle custom origin toggle
+  originSelect.addEventListener('change', function() {
+    if (originSelect.value === 'custom') {
+      originCustomBox.style.display = 'block';
+      originCustomInput.focus();
+    } else {
+      originCustomBox.style.display = 'none';
+    }
+    updateCalculations();
+  });
+
+  originCustomInput.addEventListener('input', updateCalculations);
+
+  // Handle custom destination toggle
+  destSelect.addEventListener('change', function() {
+    if (destSelect.value === 'custom') {
+      destCustomBox.style.display = 'block';
+      destCustomInput.focus();
+      routeIdInput.value = '';
+    } else {
+      destCustomBox.style.display = 'none';
+      const opt = destSelect.options[destSelect.selectedIndex];
+      if (opt && opt.dataset.routeId) {
+        routeIdInput.value = opt.dataset.routeId;
+        if (opt.dataset.distance) {
+          distInput.value = opt.dataset.distance;
+        }
+      }
+    }
+    updateCalculations();
+  });
+
+  destCustomInput.addEventListener('input', updateCalculations);
+
+  // Toggle Total vs Per Person
+  btnTotal.addEventListener('click', function() {
+    if (entryMode === 'total') return;
+    const pax = parseInt(paxSelect.value, 10) || 1;
+    const currentVal = parseFloat(fareInput.value);
+    if (!isNaN(currentVal)) {
+      fareInput.value = (currentVal * pax).toFixed(2);
+    }
+    entryMode = 'total';
+    entryModeHidden.value = 'total';
+    btnTotal.classList.add('active');
+    btnPerPax.classList.remove('active');
+    fareLabel.textContent = 'Total Fare Paid (₱) *';
+    updateCalculations();
+  });
+
+  btnPerPax.addEventListener('click', function() {
+    if (entryMode === 'per_pax') return;
+    const pax = parseInt(paxSelect.value, 10) || 1;
+    const currentVal = parseFloat(fareInput.value);
+    if (!isNaN(currentVal) && pax > 0) {
+      fareInput.value = (currentVal / pax).toFixed(2);
+    }
+    entryMode = 'per_pax';
+    entryModeHidden.value = 'per_pax';
+    btnPerPax.classList.add('active');
+    btnTotal.classList.remove('active');
+    fareLabel.textContent = 'Fare Paid Per Person (₱) *';
+    updateCalculations();
+  });
+
+  // Trip arrangement change
+  tripRadioButtons.forEach(radio => {
+    radio.addEventListener('change', function() {
+      updateTripCardStyles();
+      updateCalculations();
+    });
+  });
+
+  paxSelect.addEventListener('change', updateCalculations);
+  distInput.addEventListener('input', updateCalculations);
+  fareInput.addEventListener('input', updateCalculations);
+
+  // Ensure form submits total fare
+  document.getElementById('reportFareForm').addEventListener('submit', function(e) {
+    if (entryMode === 'per_pax') {
+      const pax = parseInt(paxSelect.value, 10) || 1;
+      const perVal = parseFloat(fareInput.value);
+      if (!isNaN(perVal)) {
+        fareInput.value = (perVal * pax).toFixed(2);
+      }
+    }
+  });
+
+  function updateCalculations() {
+    let originName = (originSelect.value === 'custom') ? (originCustomInput.value.trim() || 'Custom Origin') : originSelect.value;
+    let destName = '';
+    let regFare = 0;
+    let specFare = 0;
+    let dist = parseFloat(distInput.value) || 1.0;
+
+    if (destSelect.value === 'custom') {
+      destName = destCustomInput.value.trim() || 'Custom Destination';
+      // Official MTPFRB Blg. 2024-02 calculation: ₱15 first km, ₱5 succeeding
+      if (dist <= 1.0) {
+        regFare = 15.00;
+      } else {
+        regFare = 15.00 + (dist - 1.0) * 5.00;
+      }
+      specFare = regFare * 2.0;
+    } else if (destSelect.selectedIndex > 0) {
+      const opt = destSelect.options[destSelect.selectedIndex];
+      destName = opt.value;
+      regFare = parseFloat(opt.dataset.fare);
+      specFare = parseFloat(opt.dataset.special) || (regFare * 2.0);
+      dist = parseFloat(opt.dataset.distance) || dist;
+    } else {
+      liveCard.style.display = 'none';
+      return;
+    }
+
+    liveCard.style.display = 'block';
+    routeLabelEl.textContent = `${originName} → ${destName} (${dist.toFixed(1)} km)`;
+
+    const tripType = getSelectedTripType();
+    const pax = parseInt(paxSelect.value, 10) || 1;
+
+    let expected = 0;
+    let formulaStr = '';
+    let badgeClass = 'badge-trip-regular';
+    let badgeText = 'Regular';
+
+    if (tripType === 'special') {
+      expected = specFare;
+      formulaStr = 'Flat official special charter rate';
+      badgeClass = 'badge-trip-special';
+      badgeText = 'Special Solo';
+    } else if (tripType === 'special_round_trip') {
+      expected = specFare * 2.0;
+      formulaStr = `₱${specFare.toFixed(2)} × 2 round trips`;
+      badgeClass = 'badge-trip-round';
+      badgeText = 'Round Trip';
+    } else {
+      expected = regFare * pax;
+      formulaStr = `₱${regFare.toFixed(2)} × ${pax} pax`;
+      badgeClass = 'badge-trip-regular';
+      badgeText = `Regular (${pax} pax)`;
+    }
+
+    badgeEl.className = 'badge-trip-type ' + badgeClass;
+    badgeEl.textContent = badgeText;
+    expectedEl.textContent = `₱${expected.toFixed(2)}`;
+    formulaEl.textContent = formulaStr;
+
+    // Determine actual total reported
+    const rawVal = parseFloat(fareInput.value);
+    let totalReported = 0;
+    if (!isNaN(rawVal)) {
+      totalReported = (entryMode === 'per_pax') ? (rawVal * pax) : rawVal;
+    }
+
+    if (totalReported > 0) {
+      reportedEl.textContent = `₱${totalReported.toFixed(2)}`;
+      if (pax > 1) {
+        perPaxEl.textContent = `(₱${(totalReported / pax).toFixed(2)} per person)`;
+      } else {
+        perPaxEl.textContent = '';
+      }
+
+      const diff = totalReported - expected;
+      const diffFormatted = (diff >= 0 ? '+' : '-') + `₱${Math.abs(diff).toFixed(2)}`;
+      diffEl.textContent = diffFormatted;
+      diffEl.style.color = diff > 0 ? 'var(--danger-red)' : 'var(--green-main)';
+
+      const ratio = expected > 0 ? (diff / expected) : 0;
+      ratioEl.textContent = diff > 0 ? `+${(ratio * 100).toFixed(1)}% vs baseline` : (diff === 0 ? 'Exact tariff compliance' : 'Below matrix baseline');
+
+      // Client-side Bayesian Approximation matching python model
+      let likelihood = 5.2;
+      let level = 'Low';
+      let levelColor = 'var(--green-main)';
+
+      if (diff <= 0) {
+        likelihood = 5.2;
+        level = 'Low (Compliant)';
+        levelColor = 'var(--green-main)';
+      } else if (ratio <= 0.10) {
+        likelihood = 58.0;
+        level = 'Medium';
+        levelColor = 'var(--warning-orange)';
+      } else if (ratio <= 0.25) {
+        likelihood = 58.0 + ((ratio - 0.10) / 0.15) * (72.4 - 58.0);
+        level = 'Medium';
+        levelColor = 'var(--warning-orange)';
+      } else if (ratio <= 0.50) {
+        likelihood = 72.4 + ((ratio - 0.25) / 0.25) * (91.3 - 72.4);
+        level = 'High';
+        levelColor = 'var(--danger-red)';
+      } else {
+        likelihood = Math.min(96.5, 91.3 + (ratio - 0.50) * 10.0);
+        level = 'High';
+        levelColor = 'var(--danger-red)';
+      }
+
+      likeEl.textContent = `${likelihood.toFixed(1)}%`;
+      likeEl.style.color = levelColor;
+      catEl.textContent = `${level} Deviation Likelihood`;
+    } else {
+      reportedEl.textContent = '₱0.00';
+      perPaxEl.textContent = '';
+      diffEl.textContent = '—';
+      ratioEl.textContent = '';
+      likeEl.textContent = '—';
+      catEl.textContent = 'Enter fare to estimate';
+    }
+  }
+
+  // Timing fields & 24-Hour Restriction Enforcement
+  const occurredInput = document.getElementById('occurred_at');
+  const timingMsg = document.getElementById('timing_validation_msg');
+  const liveSubmissionTime = document.getElementById('live_submission_time');
+
+  function updateLiveSubmissionClock() {
+    const now = new Date();
+    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+    if (liveSubmissionTime) {
+      liveSubmissionTime.textContent = now.toLocaleString('en-US', options);
+    }
+  }
+  updateLiveSubmissionClock();
+  setInterval(updateLiveSubmissionClock, 1000);
+
+  if (occurredInput) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const toLocalISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    const now = new Date();
+    // Maximum: 5 minutes in future (guards against minor clock skew)
+    const maxTime = new Date(now.getTime() + 5 * 60 * 1000);
+    // Minimum: exactly 24 hours ago
+    const minTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    occurredInput.max = toLocalISO(maxTime);
+    occurredInput.min = toLocalISO(minTime);
+    // Pre-fill with current local time
+    occurredInput.value = toLocalISO(now);
+
+    function validateTiming() {
+      if (!occurredInput.value) {
+        timingMsg.style.display = 'block';
+        timingMsg.textContent = 'Please enter when the trip occurred.';
+        occurredInput.style.borderColor = 'var(--danger-red)';
+        return false;
+      }
+      const selectedTime = new Date(occurredInput.value);
+      const currentTime = new Date();
+      const cutoffTime = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
+      const futureCutoff = new Date(currentTime.getTime() + 5 * 60 * 1000);
+
+      if (selectedTime < cutoffTime) {
+        timingMsg.style.display = 'block';
+        timingMsg.textContent = 'Trip occurred more than 24 hours ago. Reports can only be submitted within 24 hours of occurrence.';
+        occurredInput.style.borderColor = 'var(--danger-red)';
+        return false;
+      } else if (selectedTime > futureCutoff) {
+        timingMsg.style.display = 'block';
+        timingMsg.textContent = 'Trip occurrence date and time cannot be in the future.';
+        occurredInput.style.borderColor = 'var(--danger-red)';
+        return false;
+      } else {
+        timingMsg.style.display = 'none';
+        occurredInput.style.borderColor = '';
+        return true;
+      }
+    }
+
+    occurredInput.addEventListener('change', validateTiming);
+    occurredInput.addEventListener('input', validateTiming);
+
+    const reportForm = document.querySelector('form');
+    if (reportForm) {
+      reportForm.addEventListener('submit', function(e) {
+        if (!validateTiming()) {
+          e.preventDefault();
+          occurredInput.focus();
+        }
+      });
+    }
+  }
+
+  updateTripCardStyles();
+});
+
+
+  // Evidence + confidential ID previews
+  function bindFilePreview(inputId, dropzoneId, previewBoxId, imageId, videoId) {
+    const input = document.getElementById(inputId);
+    const dropzone = document.getElementById(dropzoneId);
+    const box = document.getElementById(previewBoxId);
+    const image = imageId ? document.getElementById(imageId) : null;
+    const video = videoId ? document.getElementById(videoId) : null;
+    if (!input || !dropzone) return;
+
+    dropzone.addEventListener('click', () => input.click());
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      box.style.display = 'block';
+      const url = URL.createObjectURL(file);
+      if (video && file.type.startsWith('video/')) {
+        if (image) image.style.display = 'none';
+        video.src = url;
+        video.style.display = 'block';
+      } else if (image) {
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+          video.style.display = 'none';
+        }
+        image.src = url;
+        image.style.display = 'block';
+      }
+    });
+  }
+
+  bindFilePreview('farePhotoInput', 'photoDropzone', 'photoPreviewBox', 'photoPreviewImage', 'photoPreviewVideo');
+  bindFilePreview('idPhotoInput', 'idDropzone', 'idPreviewBox', 'idPreviewImage', null);
+</script>
+{% endblock %}
